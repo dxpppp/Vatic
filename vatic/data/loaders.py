@@ -43,8 +43,8 @@ def load_input(
         ) -> tuple[dict, pd.DataFrame, pd.DataFrame]:
     """Uses a label to retrieve the input datasets for a given grid system."""
 
-    if grid == 'RTS-GMLC':
-        use_loader = RtsLoader(init_state_file)
+    if grid == 'RTS-GMLC' or grid.startswith("RTS-GMLC"):
+        use_loader = RtsLoader(init_state_file, grid_lbl=grid)
 
     elif grid == 'Texas-7k':
         use_loader = T7kLoader(init_state_file)
@@ -159,7 +159,9 @@ class GridLoader(ABC):
 
     def __init__(self,
                  init_state_file: str | Path | None = None,
-                 mins_per_time_period: int = 60) -> None:
+                 mins_per_time_period: int = 60,
+                 grid_lbl: str | None = None,) -> None:
+        
         """Create the static characteristics of the grid.
 
         Initializing a grid loader entails parsing the grid metadata to get the
@@ -224,6 +226,9 @@ class GridLoader(ABC):
                                     ramping rates.
 
         """
+        if grid_lbl is not None:
+            self.grid_lbl = grid_lbl
+
         self.mins_per_time_period = mins_per_time_period
 
         # read in metadata about static grid elements from file, clean data
@@ -567,7 +572,7 @@ class GridLoader(ABC):
 
         if load_actls is None:
             load_actls = self.get_actuals(
-                'Load', start_date, end_date).resample('H').mean()
+                'Load', start_date, end_date).resample('h').mean()
 
         site_dfs = dict()
         for zone, zone_df in self.bus_df.groupby('Area'):
@@ -629,7 +634,7 @@ class GridLoader(ABC):
         for asset_type in self.timeseries_cohorts:
             gen_fcsts = self.get_forecasts(asset_type, start_date, end_date)
             gen_actls = self.get_actuals(
-                asset_type, start_date, end_date).resample('H').mean()
+                asset_type, start_date, end_date).resample('h').mean()
 
             gen_fcsts.columns = pd.MultiIndex.from_tuples(
                 [('fcst', asset_name) for asset_name in gen_fcsts.columns])
@@ -715,7 +720,7 @@ class GridLoader(ABC):
 
         for asset_type in self.no_scenario_renews:
             new_actuals = self.get_actuals(
-                asset_type, start_date, end_date).resample('H').mean()
+                asset_type, start_date, end_date).resample('h').mean()
 
             for asset_name, asset_actuals in new_actuals.iteritems():
                 gen_df['actl', asset_name] = asset_actuals
@@ -749,7 +754,7 @@ class RtsLoader(GridLoader):
     @property
     def init_state_file(self) -> Path:
         return Path(_ROOT, "grids", "initial-state",
-                    self.grid_lbl, "on_time_7.12.csv")
+                    "RTS-GMLC", "on_time_7.12.csv")
 
     @property
     def utc_offset(self) -> pd.Timedelta:
